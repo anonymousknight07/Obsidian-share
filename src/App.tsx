@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Upload, Share2, Copy, Check, Twitter, Linkedin, Facebook, Link2, Download } from 'lucide-react';
+import { Book, Upload, Share2, Copy, Check, Twitter, Linkedin, Facebook, Link2, Download, Lock, Unlock } from 'lucide-react';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import html2pdf from 'html2pdf.js';
@@ -22,44 +22,52 @@ function App() {
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [isShortening, setIsShortening] = useState(false);
+  const [isPasswordProtected, setIsPasswordProtected] = useState(false);
+  const [password, setPassword] = useState('');
+  const [isPasswordValid, setIsPasswordValid] = useState(true);
+  const [shortLinkError, setShortLinkError] = useState(false);
 
   useEffect(() => {
     if (markdownContent) {
       const html = marked(markdownContent);
       setHtmlContent(html);
       
-      const encodedContent = btoa(encodeURIComponent(markdownContent));
+      let encodedContent = btoa(encodeURIComponent(markdownContent));
+      if (isPasswordProtected && password) {
+        encodedContent = `${encodedContent}.${btoa(password)}`;
+      }
       const currentUrl = window.location.origin;
       const fullUrl = `${currentUrl}?content=${encodedContent}`;
       setShareableLink(fullUrl);
       
-      // Create short URL
-      shortenUrl(fullUrl);
-    }
-  }, [markdownContent]);
-
-  const shortenUrl = async (url: string) => {
-    setIsShortening(true);
-    try {
-      const response = await fetch(`https://api.shrtco.de/v2/shorten?url=${encodeURIComponent(url)}`);
-      const data = await response.json();
-      if (data.ok) {
-        setShortLink(data.result.short_link);
-      }
-    } catch (error) {
-      console.error('Error shortening URL:', error);
-    } finally {
+      // Reset short link state when content changes
+      setShortLink('');
+      setShortLinkError(false);
       setIsShortening(false);
     }
-  };
+  }, [markdownContent, isPasswordProtected, password]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const content = urlParams.get('content');
     if (content) {
       try {
-        const decodedContent = decodeURIComponent(atob(content));
-        setMarkdownContent(decodedContent);
+        // Check if content contains password
+        const [encodedContent, encodedPassword] = content.split('.');
+        if (encodedPassword) {
+          const userPassword = prompt('This content is password protected. Please enter the password:');
+          if (userPassword === atob(encodedPassword)) {
+            const decodedContent = decodeURIComponent(atob(encodedContent));
+            setMarkdownContent(decodedContent);
+            setIsPasswordValid(true);
+          } else {
+            setIsPasswordValid(false);
+            return;
+          }
+        } else {
+          const decodedContent = decodeURIComponent(atob(encodedContent));
+          setMarkdownContent(decodedContent);
+        }
       } catch (error) {
         console.error('Failed to decode content:', error);
       }
@@ -78,6 +86,47 @@ function App() {
     }
   };
 
+  const shortenUrl = async (url: string) => {
+    if (isShortening) return; // Prevent multiple simultaneous requests
+    
+    setIsShortening(true);
+    setShortLinkError(false);
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+      const response = await fetch(
+        `https://api.shrtco.de/v2/shorten?url=${encodeURIComponent(url)}`,
+        { signal: controller.signal }
+      );
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      
+      const data = await response.json();
+      if (data.ok && data.result.short_link) {
+        setShortLink(data.result.short_link);
+      } else {
+        throw new Error('Invalid response from shortening service');
+      }
+    } catch (error) {
+      setShortLinkError(true);
+      // Don't log the error to console anymore
+    } finally {
+      setIsShortening(false);
+    }
+  };
+
+  const handleShortenUrl = () => {
+    if (!shortLink && !isShortening && !shortLinkError) {
+      shortenUrl(shareableLink);
+    }
+  };
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -91,7 +140,7 @@ function App() {
   const shareToSocial = (platform: string) => {
     const text = "Check out this markdown document!";
     const encodedText = encodeURIComponent(text);
-    const urlToShare = shortLink || shareableLink;
+    const urlToShare = shortLink ? `https://${shortLink}` : shareableLink;
     const encodedUrl = encodeURIComponent(urlToShare);
 
     let url = '';
@@ -213,6 +262,13 @@ function App() {
           </label>
         </div>
 
+        {!isPasswordValid && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+            <strong className="font-bold">Invalid password!</strong>
+            <span className="block sm:inline"> Please check the password and try again.</span>
+          </div>
+        )}
+
         {shareableLink && (
           <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -236,6 +292,43 @@ function App() {
                   </button>
                 </div>
               </div>
+            </div>
+
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-4">
+                <button
+                  onClick={() => setIsPasswordProtected(!isPasswordProtected)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${
+                    isPasswordProtected 
+                      ? 'bg-[#7b2cbf] text-white' 
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {isPasswordProtected ? (
+                    <>
+                      <Lock className="h-4 w-4" />
+                      Password Protected
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="h-4 w-4" />
+                      Add Password Protection
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {isPasswordProtected && (
+                <div className="mb-4">
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter password for protection"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#7b2cbf]"
+                  />
+                </div>
+              )}
             </div>
             
             {showShareMenu && (
@@ -295,7 +388,6 @@ function App() {
             )}
 
             <div className="space-y-4">
-              {/* Full URL */}
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -321,14 +413,23 @@ function App() {
                 </button>
               </div>
 
-              {/* Short URL */}
-              {isShortening ? (
-                <div className="flex gap-2">
-                  <div className="flex-1 px-3 py-2 bg-white/50 rounded-md text-sm text-gray-500">
-                    Generating short link...
-                  </div>
+              {!shortLink && !shortLinkError && (
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleShortenUrl}
+                    disabled={isShortening}
+                    className={`text-sm px-4 py-2 rounded-md transition-colors ${
+                      isShortening
+                        ? 'bg-gray-200 text-gray-500'
+                        : 'bg-[#7b2cbf] text-white hover:bg-[#9d4edd]'
+                    }`}
+                  >
+                    {isShortening ? 'Generating short link...' : 'Generate Short Link'}
+                  </button>
                 </div>
-              ) : shortLink && (
+              )}
+
+              {shortLink && (
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -358,7 +459,7 @@ function App() {
           </div>
         )}
 
-        {htmlContent && (
+        {htmlContent && isPasswordValid && (
           <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-6">Preview</h2>
             <div 
