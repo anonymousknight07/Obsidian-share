@@ -157,7 +157,7 @@ function App() {
       <div className="text-center mb-10">
   <div className="flex justify-center mb-4">
     <img 
-      src="./public/logo.png" 
+      src="./logo.png" 
       alt="Book icon" 
       className="h-12 w-12"
     />
