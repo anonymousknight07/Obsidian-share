@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Upload, Share2, Copy, Check, Twitter, Linkedin, Facebook, Link2 } from 'lucide-react';
+import { Book, Upload, Share2, Copy, Check, Twitter, Linkedin, Facebook, Link2, Download } from 'lucide-react';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
+import html2pdf from 'html2pdf.js';
 import 'highlight.js/styles/github-dark.css';
 
 marked.setOptions({
@@ -18,6 +19,7 @@ function App() {
   const [shareableLink, setShareableLink] = useState('');
   const [copied, setCopied] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
 
   useEffect(() => {
     if (markdownContent) {
@@ -89,6 +91,66 @@ function App() {
     window.open(url, '_blank', 'width=600,height=400');
   };
 
+  const downloadAsPDF = async () => {
+    const element = document.createElement('div');
+    element.innerHTML = htmlContent;
+    element.className = 'prose prose-lg prose-purple max-w-none p-8';
+    document.body.appendChild(element);
+
+    const opt = {
+      margin: 1,
+      filename: 'document.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    try {
+      await html2pdf().set(opt).from(element).save();
+    } finally {
+      document.body.removeChild(element);
+    }
+  };
+
+  const downloadAsHTML = () => {
+    const fullHTML = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Document</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; }
+            pre { background: #f6f8fa; padding: 1em; border-radius: 4px; }
+            code { font-family: monospace; }
+            img { max-width: 100%; }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+        </body>
+      </html>
+    `;
+    
+    const blob = new Blob([fullHTML], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'document.html';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const downloadAsMarkdown = () => {
+    const blob = new Blob([markdownContent], { type: 'text/markdown' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'document.md';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#9d4edd] to-[#7b2cbf]">
       <div className="container mx-auto px-4 py-8">
@@ -133,13 +195,26 @@ function App() {
         {shareableLink && (
           <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Share</h2>
-              <button
-                onClick={() => setShowShareMenu(!showShareMenu)}
-                className="text-[#7b2cbf] hover:text-[#9d4edd]"
-              >
-                <Share2 className="h-5 w-5" />
-              </button>
+              <div className="flex gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Share</h2>
+                  <button
+                    onClick={() => setShowShareMenu(!showShareMenu)}
+                    className="text-[#7b2cbf] hover:text-[#9d4edd] mt-2"
+                  >
+                    <Share2 className="h-5 w-5" />
+                  </button>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Download</h2>
+                  <button
+                    onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                    className="text-[#7b2cbf] hover:text-[#9d4edd] mt-2"
+                  >
+                    <Download className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
             </div>
             
             {showShareMenu && (
@@ -171,6 +246,29 @@ function App() {
                   title="Share on WhatsApp"
                 >
                   <Link2 className="h-5 w-5" />
+                </button>
+              </div>
+            )}
+
+            {showDownloadMenu && (
+              <div className="mb-4 flex gap-4 justify-center">
+                <button
+                  onClick={downloadAsPDF}
+                  className="px-4 py-2 bg-[#7b2cbf] text-white rounded-md hover:bg-[#9d4edd] transition-colors"
+                >
+                  Download PDF
+                </button>
+                <button
+                  onClick={downloadAsHTML}
+                  className="px-4 py-2 bg-[#7b2cbf] text-white rounded-md hover:bg-[#9d4edd] transition-colors"
+                >
+                  Download HTML
+                </button>
+                <button
+                  onClick={downloadAsMarkdown}
+                  className="px-4 py-2 bg-[#7b2cbf] text-white rounded-md hover:bg-[#9d4edd] transition-colors"
+                >
+                  Download MD
                 </button>
               </div>
             )}
