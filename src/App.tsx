@@ -17,9 +17,11 @@ function App() {
   const [markdownContent, setMarkdownContent] = useState('');
   const [htmlContent, setHtmlContent] = useState('');
   const [shareableLink, setShareableLink] = useState('');
+  const [shortLink, setShortLink] = useState('');
   const [copied, setCopied] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [isShortening, setIsShortening] = useState(false);
 
   useEffect(() => {
     if (markdownContent) {
@@ -28,9 +30,28 @@ function App() {
       
       const encodedContent = btoa(encodeURIComponent(markdownContent));
       const currentUrl = window.location.origin;
-      setShareableLink(`${currentUrl}?content=${encodedContent}`);
+      const fullUrl = `${currentUrl}?content=${encodedContent}`;
+      setShareableLink(fullUrl);
+      
+      // Create short URL
+      shortenUrl(fullUrl);
     }
   }, [markdownContent]);
+
+  const shortenUrl = async (url: string) => {
+    setIsShortening(true);
+    try {
+      const response = await fetch(`https://api.shrtco.de/v2/shorten?url=${encodeURIComponent(url)}`);
+      const data = await response.json();
+      if (data.ok) {
+        setShortLink(data.result.short_link);
+      }
+    } catch (error) {
+      console.error('Error shortening URL:', error);
+    } finally {
+      setIsShortening(false);
+    }
+  };
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -57,9 +78,9 @@ function App() {
     }
   };
 
-  const copyToClipboard = async () => {
+  const copyToClipboard = async (text: string) => {
     try {
-      await navigator.clipboard.writeText(shareableLink);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
@@ -70,7 +91,8 @@ function App() {
   const shareToSocial = (platform: string) => {
     const text = "Check out this markdown document!";
     const encodedText = encodeURIComponent(text);
-    const encodedUrl = encodeURIComponent(shareableLink);
+    const urlToShare = shortLink || shareableLink;
+    const encodedUrl = encodeURIComponent(urlToShare);
 
     let url = '';
     switch (platform) {
@@ -154,22 +176,21 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#9d4edd] to-[#7b2cbf]">
       <div className="container mx-auto px-4 py-8">
-      <div className="text-center mb-10">
-  <div className="flex justify-center mb-4">
-    <img 
-      src="./logo.png" 
-      alt="Book icon" 
-      className="h-12 w-12"
-    />
-  </div>
-  <h1 className="text-4xl font-bold text-white mb-4">
-    Obsidian Share
-  </h1>
-  <p className="text-lg text-white/90">
-    Upload your Obsidian file and just share the link for others to view it
-  </p>
-</div>
-
+        <div className="text-center mb-10">
+          <div className="flex justify-center mb-4">
+            <img 
+              src="./logo.png" 
+              alt="Book icon" 
+              className="h-12 w-12"
+            />
+          </div>
+          <h1 className="text-4xl font-bold text-white mb-4">
+            Obsidian Share
+          </h1>
+          <p className="text-lg text-white/90">
+            Upload your Obsidian file and just share the link for others to view it
+          </p>
+        </div>
 
         <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
@@ -273,29 +294,66 @@ function App() {
               </div>
             )}
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={shareableLink}
-                readOnly
-                className="flex-1 px-3 py-2 bg-white/50 rounded-md text-sm text-gray-800"
-              />
-              <button
-                onClick={copyToClipboard}
-                className="flex items-center gap-2 px-4 py-2 bg-[#7b2cbf] text-white rounded-md hover:bg-[#9d4edd] transition-colors"
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-4 w-4" />
-                    Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4" />
-                    Copy
-                  </>
-                )}
-              </button>
+            <div className="space-y-4">
+              {/* Full URL */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={shareableLink}
+                  readOnly
+                  className="flex-1 px-3 py-2 bg-white/50 rounded-md text-sm text-gray-800"
+                />
+                <button
+                  onClick={() => copyToClipboard(shareableLink)}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#7b2cbf] text-white rounded-md hover:bg-[#9d4edd] transition-colors"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Short URL */}
+              {isShortening ? (
+                <div className="flex gap-2">
+                  <div className="flex-1 px-3 py-2 bg-white/50 rounded-md text-sm text-gray-500">
+                    Generating short link...
+                  </div>
+                </div>
+              ) : shortLink && (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={`https://${shortLink}`}
+                    readOnly
+                    className="flex-1 px-3 py-2 bg-white/50 rounded-md text-sm text-gray-800"
+                  />
+                  <button
+                    onClick={() => copyToClipboard(`https://${shortLink}`)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#7b2cbf] text-white rounded-md hover:bg-[#9d4edd] transition-colors"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4" />
+                        Copy Short URL
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
