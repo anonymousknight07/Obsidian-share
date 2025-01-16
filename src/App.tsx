@@ -87,35 +87,36 @@ function App() {
   };
 
   const shortenUrl = async (url: string) => {
-    if (isShortening) return; // Prevent multiple simultaneous requests
+    if (isShortening) return;
     
     setIsShortening(true);
     setShortLinkError(false);
     
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
       const response = await fetch(
-        `https://api.shrtco.de/v2/shorten?url=${encodeURIComponent(url)}`,
-        { signal: controller.signal }
+        `https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`,
+        { 
+          method: 'GET',
+          headers: {
+            'Content-Type': 'text/plain',
+          },
+        }
       );
-      
-      clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
       
-      const data = await response.json();
-      if (data.ok && data.result.short_link) {
-        setShortLink(data.result.short_link);
+      const shortUrl = await response.text();
+      if (shortUrl) {
+        // Remove the https:// or http:// from the beginning of the URL
+        const cleanShortUrl = shortUrl.replace(/^https?:\/\//, '');
+        setShortLink(cleanShortUrl);
       } else {
         throw new Error('Invalid response from shortening service');
       }
     } catch (error) {
       setShortLinkError(true);
-      // Don't log the error to console anymore
     } finally {
       setIsShortening(false);
     }
@@ -453,6 +454,12 @@ function App() {
                       </>
                     )}
                   </button>
+                </div>
+              )}
+
+              {shortLinkError && (
+                <div className="text-red-500 text-sm text-center">
+                  Failed to generate short link. Please try again later.
                 </div>
               )}
             </div>
