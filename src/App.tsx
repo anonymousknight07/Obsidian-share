@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Book, Upload, Share2, Copy, Check, Twitter, Linkedin, Facebook, Link2, Download, Lock, Unlock } from 'lucide-react';
+import { Book, Upload, Share2, Copy, Check, Twitter, Linkedin, Facebook, Link2, Download, Lock, Unlock, Trash2 } from 'lucide-react';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import html2pdf from 'html2pdf.js';
@@ -40,7 +40,6 @@ function App() {
       const fullUrl = `${currentUrl}?content=${encodedContent}`;
       setShareableLink(fullUrl);
       
-      // Reset short link state when content changes
       setShortLink('');
       setShortLinkError(false);
       setIsShortening(false);
@@ -52,7 +51,6 @@ function App() {
     const content = urlParams.get('content');
     if (content) {
       try {
-        // Check if content contains password
         const [encodedContent, encodedPassword] = content.split('.');
         if (encodedPassword) {
           const userPassword = prompt('This content is password protected. Please enter the password:');
@@ -86,6 +84,18 @@ function App() {
     }
   };
 
+  const deleteUrl = () => {
+    setShareableLink('');
+    setShortLink('');
+    setIsPasswordProtected(false);
+    setPassword('');
+    setShowShareMenu(false);
+    setShowDownloadMenu(false);
+    setCopied(false);
+    setMarkdownContent('');
+    setHtmlContent('');
+  };
+
   const shortenUrl = async (url: string) => {
     if (isShortening) return;
     
@@ -109,7 +119,6 @@ function App() {
       
       const shortUrl = await response.text();
       if (shortUrl) {
-        // Remove the https:// or http:// from the beginning of the URL
         const cleanShortUrl = shortUrl.replace(/^https?:\/\//, '');
         setShortLink(cleanShortUrl);
       } else {
@@ -293,6 +302,13 @@ function App() {
                   </button>
                 </div>
               </div>
+              <button
+                onClick={deleteUrl}
+                className="text-red-500 hover:text-red-600 transition-colors p-2 rounded-full hover:bg-red-50"
+                title="Delete URL"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
             </div>
 
             <div className="mb-4">
@@ -366,7 +382,7 @@ function App() {
             )}
 
             {showDownloadMenu && (
-              <div className="mb-4 flex gap-4 justify-center">
+              <div className="mb-4 flex flex-wrap gap-4 justify-center">
                 <button
                   onClick={downloadAsPDF}
                   className="px-4 py-2 bg-[#7b2cbf] text-white rounded-md hover:bg-[#9d4edd] transition-colors"
@@ -389,7 +405,7 @@ function App() {
             )}
 
             <div className="space-y-4">
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   value={shareableLink}
@@ -398,17 +414,17 @@ function App() {
                 />
                 <button
                   onClick={() => copyToClipboard(shareableLink)}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#7b2cbf] text-white rounded-md hover:bg-[#9d4edd] transition-colors"
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7b2cbf] text-white rounded-md hover:bg-[#9d4edd] transition-colors whitespace-nowrap"
                 >
                   {copied ? (
                     <>
                       <Check className="h-4 w-4" />
-                      Copied!
+                      <span>Copied!</span>
                     </>
                   ) : (
                     <>
                       <Copy className="h-4 w-4" />
-                      Copy
+                      <span>Copy</span>
                     </>
                   )}
                 </button>
@@ -431,7 +447,7 @@ function App() {
               )}
 
               {shortLink && (
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input
                     type="text"
                     value={`https://${shortLink}`}
@@ -440,17 +456,17 @@ function App() {
                   />
                   <button
                     onClick={() => copyToClipboard(`https://${shortLink}`)}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#7b2cbf] text-white rounded-md hover:bg-[#9d4edd] transition-colors"
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-[#7b2cbf] text-white rounded-md hover:bg-[#9d4edd] transition-colors whitespace-nowrap"
                   >
                     {copied ? (
                       <>
                         <Check className="h-4 w-4" />
-                        Copied!
+                        <span>Copied!</span>
                       </>
                     ) : (
                       <>
                         <Copy className="h-4 w-4" />
-                        Copy Short URL
+                        <span>Copy Short URL</span>
                       </>
                     )}
                   </button>
