@@ -52,7 +52,7 @@ obsidian-share/
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/obsidian-share.git
+git clone https://github.com/anonymousknight07/Obsidian-share.git
 cd obsidian-share
 npm install
 ```
